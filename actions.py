@@ -60,9 +60,10 @@ class PickupAction(Action):
 
 
 class ItemAction(Action):
-    def __init__(self, entity: Actor, item: Item, target_xy: Optional[Tuple[int, int]] = None):
+    def __init__(self, entity: Actor, item: Optional[Item], target_xy: Optional[Tuple[int, int]] = None, skill = None):
         super().__init__(entity)
         self.item = item
+        self.skill = skill
         if not target_xy:
             target_xy = entity.x, entity.y
         self.target_xy = target_xy
@@ -74,8 +75,10 @@ class ItemAction(Action):
 
     def perform(self) -> None:
         """Invoke the items ability, this action will be given to provide context."""
-        if self.item.consumable:
+        if self.item and self.item.consumable:
             self.item.consumable.activate(self)
+        elif self.skill:
+            self.skill.activate(self)
 
 
 class DropItem(ItemAction):
@@ -109,6 +112,19 @@ class TakeStairsAction(Action):
         if (self.entity.x, self.entity.y) == self.engine.game_map.downstairs_location:
             self.engine.game_world.generate_floor()
             self.engine.message_log.add_message("You descend the staircase.", color.descend)
+
+
+            if self.engine.game_world.current_floor == 2:
+                from components.skills import BeamSkill
+                from color import purple
+                self.engine.player.skills.add_skill(BeamSkill(damage=10, range=8))
+                self.engine.message_log.add_message("You stumble upon an ancient tome... You learned Beam!", purple)
+
+            if self.engine.game_world.current_floor == 3:
+                from components.skills import HealSkill
+                from color import purple
+                self.engine.player.skills.add_skill(HealSkill(amount=20))
+                self.engine.message_log.add_message("You feel a divine presence... You learned Lesser Heal!", purple)
         else:
             raise exceptions.Impossible("There are no stairs here.")
 

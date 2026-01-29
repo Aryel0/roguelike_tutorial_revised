@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from components.level import Level
     from game_map import GameMap
 
+from components.skills import SkillTree
+
 T = TypeVar("T", bound="Entity")
 
 
@@ -94,6 +96,7 @@ class Actor(Entity):
         fighter: Fighter,
         inventory: Inventory,
         level: Level,
+        skills: Optional[SkillTree] = None,
     ):
         super().__init__(
             x=x,
@@ -118,6 +121,9 @@ class Actor(Entity):
 
         self.level = level
         self.level.parent = self
+
+        self.skills = skills or SkillTree()
+        self.skills.parent = self
 
         self.facing_direction = (1, 0)
 

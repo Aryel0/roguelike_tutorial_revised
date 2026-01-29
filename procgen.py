@@ -220,6 +220,10 @@ def place_lava_pit(room: RectangularRoom, dungeon: GameMap, chance: float = 0.15
         return
 
     pit_size = random.randint(2, 4)
+
+    if (room.x2 - room.x1) < pit_size + 4 or (room.y2 - room.y1) < pit_size + 4:
+        return
+
     pit_x = random.randint(room.x1 + 2, room.x2 - pit_size - 2)
     pit_y = random.randint(room.y1 + 2, room.y2 - pit_size - 2)
 

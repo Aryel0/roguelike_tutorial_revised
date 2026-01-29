@@ -12,6 +12,7 @@ import components.inventory
 
 if TYPE_CHECKING:
     from entity import Actor, Item
+    from components.fighter import Fighter
 
 
 class Consumable(BaseComponent):
@@ -165,11 +166,11 @@ class StrengthPotionConsumable(Consumable):
             raise Impossible("You already feel unnaturally strong!")
 
         fighter.temporary_buffs["strength"] = {
-    "turns_left": self.number_of_turns,
-    "on_expire": lambda fighter: setattr(fighter, "base_power", fighter.base_power - self.power_boost),
-    "message": "You feel your power getting neutralized, your strength boost has worn off.",
-    "color": color.red, }
-
+            "turns_left": self.number_of_turns,
+            "on_expire": self.revert_strength,
+            "message": "You feel your power getting neutralized, your strength boost has worn off.",
+            "color": color.red,
+        }
 
         fighter.base_power += self.power_boost
 
@@ -179,6 +180,9 @@ class StrengthPotionConsumable(Consumable):
         )
 
         self.consume()
+
+    def revert_strength(self, fighter: Fighter) -> None:
+        fighter.base_power -= self.power_boost
 
 
 class DefensePotionConsumable(Consumable):
@@ -197,7 +201,7 @@ class DefensePotionConsumable(Consumable):
 
         fighter.temporary_buffs["defense"] = {
             "turns_left": self.number_of_turns,
-            "on_expire": lambda f: setattr(f, "base_defense", f.base_defense - self.defense_boost),
+            "on_expire": self.revert_defense,
             "message": f"You feel unsafe again, your defense boost has worn off!",
             "color": color.red
         }
@@ -209,6 +213,9 @@ class DefensePotionConsumable(Consumable):
             color.green
         )
         self.consume()
+
+    def revert_defense(self, fighter: Fighter) -> None:
+        fighter.base_defense -= self.defense_boost
 
 
 class IceBombConsumable(Consumable):

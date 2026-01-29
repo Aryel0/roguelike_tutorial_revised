@@ -1,6 +1,8 @@
 from re import I
 from components import consumable, equippable
-from components.ai import BossAI, HostileEnemy, HostileEnemyWithProjectile, RangedEnemy
+from components import consumable, equippable
+from components.ai import BlacksmithAI, BossAI, HostileEnemy, HostileEnemyWithProjectile, RangedEnemy
+from components.equipment import Equipment
 from components.equipment import Equipment
 from components.fighter import Fighter
 from components.inventory import Inventory
@@ -214,4 +216,37 @@ dragon_scale = Item(
     color=(255, 50, 50),
     name="Dragon Scale Armor",
     equippable=equippable.DragonScale(),
+)
+
+blacksmith = Actor(
+    char="B",
+    color=(200, 200, 200),
+    name="Blacksmith",
+    ai_cls=BlacksmithAI,
+    equipment=Equipment(),
+    fighter=Fighter(hp=100, base_defense=10, base_power=0),
+    inventory=Inventory(capacity=0),
+    level=Level(xp_given=0),
+)
+
+dragon_boss = Actor(
+    char="D",
+    color=(255, 0, 0),
+    name="Dragon Boss",
+    ai_cls=BossAI,
+    equipment=Equipment(),
+    fighter=Fighter(hp=100, base_defense=4, base_power=10),
+    inventory=Inventory(capacity=0),
+    level=Level(xp_given=500),
+)
+
+demon_lord = Actor(
+    char="&",
+    color=(128, 0, 0),
+    name="Demon Lord",
+    ai_cls=BossAI,
+    equipment=Equipment(),
+    fighter=Fighter(hp=200, base_defense=6, base_power=15),
+    inventory=Inventory(capacity=0),
+    level=Level(xp_given=1000),
 )

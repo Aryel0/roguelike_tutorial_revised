@@ -25,3 +25,4 @@ bar_empty = (0x40, 0x10, 0x10)
 
 menu_title = (255, 255, 63)
 menu_text = white
+purple = (128, 0, 128)

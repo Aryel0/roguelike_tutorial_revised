@@ -38,10 +38,10 @@ def main() -> None:
                 context.present(root_console)
 
                 try:
-                    if hasattr(handler, 'engine'):
-                        handler.engine.update_projectiles()
+                    if isinstance(handler, input_handlers.EventHandler):
+                        handler.engine.update_realtime()
 
-                    for event in tcod.event.wait():
+                    for event in tcod.event.get():
                         context.convert_event(event)
                         handler = handler.handle_events(event)
                 except Exception:  # Handle exceptions in game.

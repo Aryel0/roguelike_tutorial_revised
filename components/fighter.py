@@ -70,6 +70,13 @@ class Fighter(BaseComponent):
 
         self.engine.player.level.add_xp(self.parent.level.xp_given)
 
+        from components.ai import BossAI
+        if self.parent.ai and isinstance(self.parent.ai, BossAI):
+            from components.skills import FireballSkill
+            from color import purple
+            self.engine.player.skills.add_skill(FireballSkill(damage=20, radius=3))
+            self.engine.message_log.add_message("You send the beast to the void, receiving a vision of fire...", purple)
+
     def heal(self, amount: int) -> int:
         if self.hp == self.max_hp:
             return 0

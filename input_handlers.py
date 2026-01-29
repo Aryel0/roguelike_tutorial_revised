@@ -9,6 +9,7 @@ from actions import Action, BumpAction, PickupAction, WaitAction, ThrowProjectil
 import actions
 import color
 import exceptions
+from engine import GameState
 
 if TYPE_CHECKING:
     from engine import Engine
@@ -44,6 +45,7 @@ MOVE_KEYS = {
     tcod.event.K_b: (-1, 1),
     tcod.event.K_n: (1, 1),
 }
+
 
 WAIT_KEYS = {
     tcod.event.K_PERIOD,
@@ -128,31 +130,41 @@ class EventHandler(BaseEventHandler):
         return self
 
     def handle_action(self, action: Optional[Action]) -> bool:
-            """Handle actions returned from event methods.
+        """Handle actions returned from event methods.
 
-            Returns True if the action will advance a turn.
-            """
-            if action is None:
-                return False
+        Returns True if the action will advance a turn.
+        """
+        if action is None:
+            return False
 
-            try:
-                action.perform()
-            except exceptions.Impossible as exc:
-                self.engine.message_log.add_message(exc.args[0], color.impossible)
-                return False  # Skip enemy turn on exceptions.
+        # If we are in EXPLORATION mode, check/update cooldown
+        if self.engine.game_state == GameState.EXPLORATION:
+            import time
+            current_time = time.monotonic()
+            if current_time - self.engine.last_player_move_time < self.engine.player_move_interval:
+                return False  # Too fast, ignore input
+            self.engine.last_player_move_time = current_time
 
+        try:
+            action.perform()
+        except exceptions.Impossible as exc:
+            self.engine.message_log.add_message(exc.args[0], color.impossible)
+            return False  # Skip enemy turn on exceptions.
+
+        # Only process enemy turns and projectiles in TURN_BASED mode
+        if self.engine.game_state == GameState.TURN_BASED:
             self.engine.handle_enemy_turns()
-
-            # Update projectiles after each turn
-            # This makes them move continuously
+            # Update projectiles after each turn - makes them move continuously in turn based
             self.engine.update_projectiles()
 
-            self.engine.update_fov()
-            return True
+        # In realtime mode, enemies and projectiles are handled by engine.update_realtime()
+
+        self.engine.update_fov()
+        return True
 
     def ev_mousemotion(self, event: tcod.event.MouseMotion) -> None:
         if self.engine.game_map.in_bounds(event.tile.x, event.tile.y):
-            self.engine.mouse_location = event.tile.x, event.tile.y
+            self.engine.mouse_location = int(event.tile.x), int(event.tile.y)
 
     def on_render(self, console: tcod.Console) -> None:
         self.engine.render(console)
@@ -401,6 +413,49 @@ class InventoryDropHandler(InventoryEventHandler):
         return actions.DropItem(self.engine.player, item)
 
 
+class SkillsEventHandler(AskUserEventHandler):
+    TITLE = "Select a skill to use"
+
+    def on_render(self, console: tcod.Console) -> None:
+        super().on_render(console)
+        skills = self.engine.player.skills.skills
+        number_of_items = len(skills)
+
+        height = max(number_of_items + 2, 3)
+        x = 0 if self.engine.player.x > 30 else 40
+        y = 0
+        width = len(self.TITLE) + 10
+
+        console.draw_frame(
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            clear=True,
+            fg=(255, 255, 255),
+            bg=(0, 0, 0),
+        )
+        console.print(x + 1, y, f" {self.TITLE} ", fg=(0, 0, 0), bg=(255, 255, 255))
+
+        if number_of_items > 0:
+            for i, skill in enumerate(skills):
+                skill_key = chr(ord("a") + i)
+                skill_string = f"({skill_key}) {skill.name}"
+                console.print(x + 1, y + i + 1, skill_string)
+        else:
+            console.print(x + 1, y + 1, "(Empty)")
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[ActionOrHandler]:
+        player = self.engine.player
+        key = event.sym
+        index = key - tcod.event.K_a
+
+        if 0 <= index < len(player.skills.skills):
+            selected_skill = player.skills.skills[index]
+            return selected_skill.get_action(player)
+        return super().ev_keydown(event)
+
+
 class SelectIndexHandler(AskUserEventHandler):
     """Handles asking the user for an index on the map."""
 
@@ -529,18 +584,20 @@ class MainGameEventHandler(EventHandler):
 
         elif key == tcod.event.KeySym.ESCAPE:
             raise SystemExit()
-        elif key == tcod.event.KeySym.v:
+        elif key == tcod.event.KeySym.V:
             return HistoryViewer(self.engine)
 
-        elif key == tcod.event.KeySym.g:
+        elif key == tcod.event.KeySym.G:
             action = PickupAction(player)
 
-        elif key == tcod.event.KeySym.i:
+        elif key == tcod.event.KeySym.I:
             return InventoryActivateHandler(self.engine)
-        elif key == tcod.event.KeySym.d:
+        elif key == tcod.event.KeySym.D:
             return InventoryDropHandler(self.engine)
-        elif key == tcod.event.KeySym.c:
+        elif key == tcod.event.KeySym.C:
             return CharacterScreenEventHandler(self.engine)
+        elif key == tcod.event.KeySym.S:
+            return SkillsEventHandler(self.engine)
         elif key == tcod.event.KeySym.SLASH:
             return LookHandler(self.engine)
         elif key == tcod.event.KeySym.SPACE:
@@ -621,3 +678,25 @@ class HistoryViewer(EventHandler):
         else:  # Any other key moves back to the main game state.
             return MainGameEventHandler(self.engine)
         return None
+
+class SkillTreeEventHandler(EventHandler):
+    def __init__(self, engine: Engine):
+        super().__init__(engine)
+
+    def on_render(self, console: tcod.Console) -> None:
+        super().on_render(console)
+
+        console.draw_frame(x=0, y=0, width=console.width, height=console.height, fg=color.black, bg=color.black)
+
+        console.print_box(x=0, y=0, width=console.width, height=console.height, text="Skill Tree", alignment=tcod.CENTER)
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[MainGameEventHandler]:
+        if event.sym == tcod.event.K_ESCAPE:
+            return MainGameEventHandler(self.engine)
+        return None
+
+    def ev_mousebuttondown(self, event: tcod.event.MouseButtonDown) -> Optional[MainGameEventHandler]:
+        if event.button == tcod.event.MouseButton.LEFT:
+            return MainGameEventHandler(self.engine)
+        return None
+
